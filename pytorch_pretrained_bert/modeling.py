@@ -304,6 +304,27 @@ class BertOutput(nn.Module):
         return hidden_states
 
 
+class BERTMulti(nn.Module):
+    def __init__(self, config):
+        super(BERTMulti, self).__init__()
+        # Encoder and decoder matrices project down to the smaller dimension
+        self.aug_dense = nn.Linear(config.hidden_size, config.hidden_size_aug)
+        self.aug_dense2 = nn.Linear(config.hidden_size_aug, config.hidden_size)
+        # Optional attention without the final matrix multiply.
+        if config.pals:
+            self.attn = BERTSelfAttention(config, 6)
+        self.config = config
+        self.hidden_act_fn = gelu
+
+    def forward(self, hidden_states, attention_mask=None):
+        hidden_states_aug = self.hidden_act_fn(self.aug_dense(hidden_states))
+        if self.config.pals:
+            hidden_states_aug = self.attn(hidden_states_aug, attention_mask)
+        hidden_states_aug = self.aug_dense2(hidden_states_aug)
+        hidden_states = hidden_states_aug
+        return hidden_states
+
+
 class BertLayer(nn.Module):
     def __init__(self, config):
         super(BertLayer, self).__init__()
